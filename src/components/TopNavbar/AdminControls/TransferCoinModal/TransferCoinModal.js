@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Container, Modal, Provider, Box, Table, Flex, Txt, Input } from "rendition";
 import { Button } from "@material-ui/core";
-import useAdminModal from "../../../../customHooks/useAdminModal/useAdminModal";
+import useAdminModal from "../../../../customHooks/useAdminModal";
 import { sign } from "../../../../services/signatureService";
 import hash from "../../../../services/hasherService";
 import calculateNonce from "../../../../services/miningService";
@@ -16,6 +16,7 @@ import {
   Bloxx_Transaction_Update_Column,
 } from "../../../../generated/graphql";
 import LoadingIndicator from "../../../util/LoadingIndicator";
+import merkle from '../../../../services/merklService'
 
 const TransferCoinModal = ({ adminInfo }) => {
   const [, setShowAdminModal] = useAdminModal();
@@ -25,6 +26,7 @@ const TransferCoinModal = ({ adminInfo }) => {
   const [amountToSend, setAmountToSend] = useState(0);
   const [insertAdminTransactionsMutation, { loading: insertAdminTransactionMutationLoading }] = useInsertAdminTransactionsMutation();
   const [insertBlock, { loading: insertBlockLoading }] = useInsertBlockMutation();
+  const [coinsSent, setCoinsSent] = useState(false);
   const [isSendCoinsButtonDisabled, setIsSendCoinsButtonDisabled] = useState(false);
 
   // const [blockHashbyBlockNumberQuery, { data: blockHashQueryData }] = useBlockHashByBlocknumberLazyQuery({ fetchPolicy: "network-only" });
@@ -76,10 +78,10 @@ const TransferCoinModal = ({ adminInfo }) => {
     // blockHashbyBlockNumberQuery({ variables: 0 });
     if (selectedNodes.length > 0) {
       const transactions = [];
-
+      const timestamp = ((Date.now() / 1000) | 0).toString();
       selectedNodes.forEach(selectedNode => {
         const signature = sign(
-          adminInfo.address.id.concat(":".concat(selectedNode.address.concat(":".concat(amountToSend.toString())))),
+          adminInfo.address.id.concat(":".concat(selectedNode.address.concat(":".concat(amountToSend.toString().concat(':'.concat(timestamp)))))),
           adminInfo.privateKey
         );
         const txHash = hash(
@@ -90,6 +92,7 @@ const TransferCoinModal = ({ adminInfo }) => {
           outputAddress: selectedNode.address.id,
           value: amountToSend <= 0 ? 0 : amountToSend,
           signature: signature,
+          timestamp: timestamp,
           txHash: txHash,
           address: {
             data: {
@@ -128,24 +131,10 @@ const TransferCoinModal = ({ adminInfo }) => {
            */
           .then(res => {
             /**
-             * Recursive function to calculate the new Merkel root
+             * Calculate the new Merkel root
              */
             let txHashes = res.data.insert_bloxx_transaction.returning.map(tx => tx.txHash);
-            const merkler = (txHashes) => {
-              if (txHashes.length === 1) return hash(txHashes[0]);
-              let temp = [];
-              while (txHashes.length !== 0) {
-                if (txHashes.length > 1) {
-                  const first = txHashes.pop();
-                  const second = txHashes.pop();
-                  temp.push(hash(first + second));
-                }
-                if (txHashes.length === 1) temp.push(hash(txHashes.pop()))
-              }
-              return merkler(temp);
-            }
-            const merkel = merkler(txHashes);
-
+            const merkel = merkle(txHashes);
 
             /**
              * Create the Genesis block data
@@ -172,9 +161,9 @@ const TransferCoinModal = ({ adminInfo }) => {
               ":" +
               blockData.merkleRoot +
               ":" +
-              blockData.timestamp +
-              ":" +
               blockData.difficulty +
+              ":" +
+              blockData.timestamp +
               ":" +
               nonce);
 
@@ -216,7 +205,7 @@ const TransferCoinModal = ({ adminInfo }) => {
                 previousBlockHash: blockData.previousBlockHash,
                 block_transactions: { data: block_transactions }
               }
-            }).catch(error => console.debug(error));
+            }).catch(error => console.debug(error)).then(setCoinsSent(true));
           })
           .catch(error => {
             console.debug(error);
@@ -229,6 +218,7 @@ const TransferCoinModal = ({ adminInfo }) => {
     <Modal
       title={"Transfer coins"}
       done={() => {
+        if (newNodeSubscriptionData.bloxx_node.some(node => node.addresses[0].balance > 0)) setIsSendCoinsButtonDisabled(true);
         setShowAdminModal(false);
       }}
     >
@@ -266,7 +256,7 @@ const TransferCoinModal = ({ adminInfo }) => {
                   </Button>
                 </Box>
               </Flex>
-              {isSendCoinsButtonDisabled &&
+              {(isSendCoinsButtonDisabled && !coinsSent) &&
                 <Container m={3}>
                   <Txt color={'red'}>Coins have already been transferred for this game session. Reset the game to send coins again.</Txt>
                 </Container>}

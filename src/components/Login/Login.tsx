@@ -3,8 +3,6 @@ import { Heading, Container, Provider, Flex, Button, Input, Txt } from 'renditio
 
 import Logo from '../../assets/img/logo192.png';
 import useLoginPage from '../../customHooks/useLoginPage';
-
-
 import { useAdminLoginLazyQuery, useUserLoginLazyQuery } from '../../generated/graphql';
 
 const Login = ({ admin }: { admin?: boolean }) => {
@@ -31,8 +29,8 @@ const Login = ({ admin }: { admin?: boolean }) => {
 	const onAdminLogin = () => {
 		adminLoginQuery({
 			variables: {
-				password: password,
-			},
+				password: password
+			}
 		});
 	};
 
@@ -45,8 +43,8 @@ const Login = ({ admin }: { admin?: boolean }) => {
 	const onUserLogin = () => {
 		userLoginQuery({
 			variables: {
-				password: password,
-			},
+				password: password
+			}
 		});
 	};
 
@@ -70,6 +68,7 @@ const Login = ({ admin }: { admin?: boolean }) => {
 					<Flex flexDirection='column' alignItems='flex-start'>
 						<Flex flexDirection='row' alignItems='center' justifyContent='center'>
 							<Input
+								type={admin ? 'password' : 'text'}
 								onKeyPress={e => onKeyPress(e)}
 								onChange={e => onChange(e)}
 								style={{ borderColor: loginError ? 'red' : '' }}
