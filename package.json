@@ -36,8 +36,7 @@
     "rendition": "^13.0.0",
     "reusable": "^1.0.0-alpha.12",
     "styled-components": "^5.0.0-rc.1",
-    "subscriptions-transport-ws": "^0.9.16",
-    "yarn": "^1.22.4"
+    "subscriptions-transport-ws": "^0.9.16"
   },
   "scripts": {
     "start": "react-scripts start",
